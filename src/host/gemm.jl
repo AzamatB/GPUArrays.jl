@@ -75,14 +75,16 @@ function coalesced_matmul_kernel!(
             @inbounds tile2[li, lj] = zero(TBT)
         end
 
-        # wait for all tiles to be loaded
-        KI.barrier()
+        # wait for all tiles to be loaded. the work-items only communicate through the
+        # tiles, so only local memory has to be ordered
+        KI.barrier(KI.LOCAL_MEM_FENCE)
 
         @inbounds for k in 1:TILE
             acc = muladd(tile1[li, k], tile2[k, lj], acc)
         end
 
-        KI.barrier()
+        # wait for all tiles to be read, before the next iteration overwrites them
+        KI.barrier(KI.LOCAL_MEM_FENCE)
     end
 
     # save if inbounds
